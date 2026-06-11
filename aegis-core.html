@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aegis Core — Defense Operations Console</title>
+<style>
+  :root{
+    --bg:#0B1016; --surface:#121A22; --surface2:#18222C; --line:#243340;
+    --text:#E6EEF4; --muted:#8198A6; --faint:#52646F;
+    --healthy:#4FB3A1; --accent:#5FA8D3; --info:#5B7A8C;
+    --low:#4FB3A1; --medium:#E0A03C; --high:#E0703C; --critical:#E04C5F;
+    --mono:'SF Mono','JetBrains Mono','Roboto Mono',ui-monospace,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow-x:hidden}
+
+  /* animated cyber background */
+  #bg-canvas{position:fixed;inset:0;z-index:0;opacity:0.55}
+  #app{position:relative;z-index:1}
+
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+    background:rgba(18,26,34,0.82);backdrop-filter:blur(8px);flex-wrap:wrap}
+  .brandwrap{display:flex;align-items:center;gap:13px}
+  .brand{font-size:18px;font-weight:800;letter-spacing:1px;font-family:var(--mono)}
+  .brand span{color:var(--muted);font-weight:400}
+  .tagline{font-size:11px;color:var(--muted)}
+  .hstats{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .stat{text-align:right}
+  .stat .v{font-size:15px;font-weight:700;font-family:var(--mono)}
+  .stat .l{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+  .lamp{display:flex;align-items:center;gap:7px}
+  .lamp .dot{width:8px;height:8px;border-radius:8px}
+  .lamp .lt{font-size:12px;font-weight:600}
+  .lamp .ls{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+
+  nav{display:flex;align-items:center;gap:4px;padding:0 14px;border-bottom:1px solid var(--line);
+    background:rgba(18,26,34,0.82);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+  nav button{background:none;border:none;color:var(--muted);padding:13px 13px;font-size:13px;font-weight:600;
+    border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px;cursor:pointer;font-family:var(--sans)}
+  nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+  .badge{background:var(--high);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;min-width:18px;text-align:center}
+  .runbtn{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--line);
+    color:var(--text);padding:7px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;margin-left:auto}
+
+  main{padding:22px;max-width:1240px;margin:0 auto}
+  .fade{}
+  .fade-in{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .sectitle{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 12px}
+  .muted{color:var(--muted);font-size:13px;line-height:1.6;max-width:760px}
+  .empty{color:var(--faint);font-size:13px;padding:22px 0;font-style:italic}
+
+  /* hero */
+  .herowrap{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:26px}
+  .posture{position:relative;overflow:hidden;background:rgba(18,26,34,0.9);border:1px solid;border-radius:14px;padding:26px}
+  .posture .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+  .posture .state{font-size:38px;font-weight:800;letter-spacing:-.5px;margin:8px 0 2px}
+  .posture .sub{font-size:14px;color:var(--muted)}
+  .sevbar{display:flex;gap:18px;margin-top:20px;flex-wrap:wrap}
+  .sevchip{display:flex;align-items:center;gap:6px}
+  .sevchip .d{width:9px;height:9px;border-radius:9px}
+  .sevchip .c{font-size:18px;font-weight:700;font-family:var(--mono)}
+  .sevchip .n{font-size:12px;color:var(--muted)}
+  .heroside{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mini{background:rgba(18,26,34,0.9);border:1px solid var(--line);border-radius:11px;padding:15px}
+  .mini .v{font-size:25px;font-weight:800;font-family:var(--mono);line-height:1}
+  .mini .t{font-size:12px;margin-top:6px;font-weight:600}
+  .mini .s{font-size:11px;color:var(--faint);margin-top:1px}
+
+  .pill{font-size:10px;font-weight:800;color:#0B1016;padding:2px 8px;border-radius:5px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+
+  /* rows / lists */
+  .list{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:13px;padding:12px 15px;background:var(--surface);border:none;text-align:left;width:100%;cursor:pointer;font-family:var(--sans);color:var(--text)}
+  .row:hover{background:var(--surface2)}
+  .row .nm{font-weight:600;font-size:13px;min-width:160px}
+  .row .dt{color:var(--muted);font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .tm{color:var(--faint);font-size:12px;font-family:var(--mono);white-space:nowrap}
+
+  /* split */
+  .split{display:grid;grid-template-columns:1fr 1.1fr;gap:16px;align-items:start}
+  .acol{display:flex;flex-direction:column;gap:8px;max-height:72vh;overflow-y:auto;padding-right:4px}
+  .alerts-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .alerts-hint{font-size:11px;color:var(--faint);font-style:italic}
+  .alerts-hint.paused{color:var(--medium);font-style:normal;font-weight:600}
+  .ackall{margin-left:auto;background:var(--surface2);border:1px solid var(--line);color:var(--muted);
+    font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--sans)}
+  .ackall:hover{border-color:var(--accent);color:var(--text)}
+  .cnt{font-size:11px;font-weight:800;color:var(--high);background:rgba(224,112,60,.16);padding:1px 6px;border-radius:5px}
+  .ackd{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-left:auto}
+  .arow{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;text-align:left;cursor:pointer;font-family:var(--sans);color:var(--text)}
+  .arow.active{border-color:var(--accent)}
+  .stripe{width:4px;flex-shrink:0}
+  .arow .top{display:flex;align-items:center;gap:8px;padding:10px 12px 2px}
+  .arow .rn{font-weight:600;font-size:13px}
+  .arow .tac{font-size:11px;color:var(--faint);background:var(--surface2);padding:1px 7px;border-radius:4px}
+  .arow .ad{font-size:12px;color:var(--muted);padding:0 12px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .aidot{display:flex;align-items:center;padding:0 12px;font-size:11px}
+
+  .detail{background:rgba(18,26,34,0.92);border:1px solid var(--line);border-radius:12px;padding:20px;min-height:320px;position:sticky;top:64px}
+  .detail h2{font-size:21px;margin:8px 0 6px}
+  .block{border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:12px}
+  .block .bl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px}
+  pre.ev{font-family:var(--mono);font-size:12px;color:var(--accent);margin:0;white-space:pre-wrap;line-height:1.5}
+  .aibox{border-color:var(--accent)}
+  .aibox .bl{color:var(--accent)}
+  .ainext{margin-top:12px;background:var(--surface2);border-radius:7px;padding:10px 12px;font-size:13px;line-height:1.5}
+  .ainext .nl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);font-weight:700;margin-bottom:4px}
+  .shimmer{height:12px;border-radius:4px;display:block;margin:6px 0;background:linear-gradient(90deg,#18222C 25%,#243340 50%,#18222C 75%);background-size:200% 100%;animation:sh 1.3s infinite}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .btn{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--text);padding:11px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:var(--sans)}
+  .btn:hover{border-color:var(--accent)}
+  .tag{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;white-space:nowrap}
+
+  /* response log */
+  .logrow{display:flex;align-items:center;gap:13px;padding:11px 14px;background:var(--surface);border:1px solid var(--line);border-radius:9px;margin-bottom:8px}
+  .logrow .ll{font-weight:600;font-size:13px;min-width:170px}
+  .logrow .ln{color:var(--muted);font-size:12px;flex:1}
+  .logrow .lt{color:var(--faint);font-size:12px;font-family:var(--mono)}
+
+  /* lessons */
+  .lesson{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  .lhead{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:13px 15px;text-align:left;cursor:pointer;color:var(--text);font-family:var(--sans)}
+  .lhead .nm{font-weight:600;font-size:14px}
+  .lhead .tac{font-size:11px;color:var(--faint);margin-left:auto;margin-right:8px}
+  .lhead .ch{font-size:18px;color:var(--muted);font-family:var(--mono);width:16px;text-align:center}
+  .lbody{padding:0 15px 15px;border-top:1px solid var(--line)}
+  .lfield{font-size:13px;line-height:1.6;margin-top:12px}
+  .lfield .fl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);font-weight:700;margin-bottom:3px}
+  code.rule{display:block;font-family:var(--mono);font-size:12px;color:var(--accent);background:#0B1016;border:1px solid var(--line);border-radius:7px;padding:10px 12px;margin-top:12px;white-space:pre-wrap;line-height:1.55}
+
+  /* zero trust pillars */
+  .pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:8px}
+  .pcard{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:15px}
+  .pcard .pt{font-weight:700;font-size:14px}
+  .pcard .pv{font-size:24px;font-weight:800;font-family:var(--mono);margin-top:8px}
+  .pbar{height:6px;border-radius:6px;background:var(--surface2);margin-top:8px;overflow:hidden}
+  .pbar i{display:block;height:100%;border-radius:6px}
+  .pcard .pd{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+  /* lab */
+  .labgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+  .labcard{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .labcard h3{margin:0;font-size:15px}
+  .labcard p{margin:0;font-size:12px;color:var(--muted);line-height:1.5;flex:1}
+  .labbtn{background:var(--surface2);border:1px solid var(--line);color:var(--text);padding:9px;border-radius:7px;font-weight:600;font-size:12px;cursor:pointer;font-family:var(--sans)}
+  .labbtn:hover{border-color:var(--high);color:var(--high)}
+  textarea{width:100%;background:#0B1016;border:1px solid var(--line);border-radius:9px;color:var(--text);
+    font-family:var(--mono);font-size:12px;padding:12px;min-height:120px;resize:vertical}
+  .feedbtn{background:var(--accent);border:none;color:#0B1016;padding:10px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:10px}
+
+  /* arch */
+  .flow{display:flex;align-items:center;gap:6px;margin-top:20px;flex-wrap:wrap}
+  .node{border:1.5px solid var(--line);border-radius:10px;padding:15px 18px;min-width:140px;background:rgba(18,26,34,0.9)}
+  .node .nt{font-weight:700;font-size:14px}
+  .node .ns{font-size:11px;color:var(--muted);margin-top:3px}
+  .arrow{color:var(--faint);font-size:20px;font-family:var(--mono)}
+  .principles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
+  .principle{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
+  .principle .pt{font-weight:700;font-size:14px}
+  .principle .pd{font-size:13px;color:var(--muted);line-height:1.6;margin-top:6px}
+
+  .note{background:rgba(95,168,211,0.08);border:1px solid rgba(95,168,211,0.3);border-radius:10px;padding:13px 15px;font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:18px}
+  .note b{color:var(--text)}
+
+  @media (max-width:820px){.herowrap,.split,.principles{grid-template-columns:1fr}.detail{position:static}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}#bg-canvas{opacity:.25}}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   AEGIS CORE — Defense Operations Console (standalone)
+   Open by double-click. No install. Runs entirely in your browser.
+
+   HONEST SCOPE: A browser page is sandboxed and cannot read your real
+   OS, network, or "the internet." This is a high-fidelity DEFENSE
+   SIMULATION + TEACHING console. Where a real sensor (syslog, netflow,
+   EDR/eBPF agent) would feed data, this generates realistic telemetry
+   — and you can paste REAL log lines in the Telemetry tab to have the
+   same local engine parse and score them. Detection + response logic
+   is genuine and readable; only the live global feed is simulated.
+   ============================================================ */
+
+/* ---------- severity ---------- */
+const SEV = {
+  info:{rank:0,label:"Info",color:"#5B7A8C"},
+  low:{rank:1,label:"Low",color:"#4FB3A1"},
+  medium:{rank:2,label:"Watch",color:"#E0A03C"},
+  high:{rank:3,label:"High",color:"#E0703C"},
+  critical:{rank:4,label:"Critical",color:"#E04C5F"},
+};
+
+/* ---------- detection rules (local, readable, auditable) ---------- */
+const RULES = [
+  { id:"auth-bruteforce", name:"Authentication brute force", tactic:"Credential Access", severity:"high",
+    description:"Many failed logins from one source in a short window suggests password guessing.",
+    logic:"failed_logins(source_ip) >= 5 within 60s",
+    response:"throttle-source",
+    evaluate:(e,s)=>{ if(e.type!=="auth_fail")return null; const k=e.source_ip,w=s.win.authFail,now=e.ts;
+      w[k]=(w[k]||[]).filter(t=>now-t<60000); w[k].push(now);
+      if(w[k].length>=5) return {detail:`${w[k].length} failed logins from ${e.source_ip} in 60s`,evidence:{source_ip:e.source_ip,count:w[k].length},pillar:"Identity"}; return null; } },
+
+  { id:"impossible-travel", name:"Impossible travel", tactic:"Initial Access", severity:"high",
+    description:"The same account authenticating from two distant regions faster than travel allows.",
+    logic:"login(user, regionA) then login(user, regionB) within 2 min",
+    response:"challenge-mfa",
+    evaluate:(e,s)=>{ if(e.type!=="auth_success")return null; const last=s.lastLogin[e.user];
+      s.lastLogin[e.user]={region:e.region,ts:e.ts};
+      if(last&&last.region!==e.region&&e.ts-last.ts<120000) return {detail:`${e.user} signed in from ${last.region} then ${e.region} within 2 min`,evidence:{user:e.user,from:last.region,to:e.region},pillar:"Identity"}; return null; } },
+
+  { id:"port-scan", name:"Port scan", tactic:"Discovery", severity:"medium",
+    description:"One source touching many distinct ports quickly is mapping your attack surface.",
+    logic:"distinct_ports(source_ip) >= 12 within 30s",
+    response:"throttle-source",
+    evaluate:(e,s)=>{ if(e.type!=="conn")return null; const k=e.source_ip,w=s.win.ports,now=e.ts;
+      w[k]=(w[k]||[]).filter(x=>now-x.ts<30000); w[k].push({port:e.dest_port,ts:now});
+      const d=new Set(w[k].map(x=>x.port)).size;
+      if(d>=12) return {detail:`${e.source_ip} probed ${d} ports in 30s`,evidence:{source_ip:e.source_ip,ports:d},pillar:"Networks"}; return null; } },
+
+  { id:"data-exfil", name:"Unusual data egress", tactic:"Exfiltration", severity:"critical",
+    description:"A large outbound transfer to an unfamiliar destination may be data leaving.",
+    logic:"egress_bytes > 50MB AND destination not in allow-list",
+    response:"isolate-host",
+    evaluate:(e)=>{ if(e.type!=="egress")return null;
+      if(e.bytes>50000000&&e.dest_known===false) return {detail:`${(e.bytes/1e6).toFixed(0)}MB sent to unknown host ${e.dest_ip}`,evidence:{dest_ip:e.dest_ip,mb:Math.round(e.bytes/1e6)},pillar:"Data"}; return null; } },
+
+  { id:"priv-esc", name:"Privilege escalation", tactic:"Privilege Escalation", severity:"high",
+    description:"An account being added to an admin group outside change windows.",
+    logic:"group_add(target) where group in {admin, root}",
+    response:"challenge-mfa",
+    evaluate:(e)=>{ if(e.type!=="priv_change")return null;
+      if(e.added_to==="admin"||e.added_to==="root") return {detail:`${e.user} added to ${e.added_to} by ${e.actor}`,evidence:{user:e.user,actor:e.actor},pillar:"Identity"}; return null; } },
+
+  { id:"malware-hash", name:"Known-bad file hash", tactic:"Execution", severity:"critical",
+    description:"A file matching a threat-intel hash was written to disk.",
+    logic:"sha256(file) in threat_intel_blocklist",
+    response:"isolate-host",
+    evaluate:(e,s)=>{ if(e.type!=="file_write")return null;
+      if(s.badHashes.has(e.sha256)) return {detail:`Known-bad file ${e.path} written on ${e.host}`,evidence:{host:e.host,path:e.path},pillar:"Devices"}; return null; } },
+
+  { id:"lateral-move", name:"Lateral movement", tactic:"Lateral Movement", severity:"high",
+    description:"One internal host opening admin sessions to many other internal hosts fast — a hallmark of an attacker spreading.",
+    logic:"internal SMB/RDP/SSH to >= 4 distinct internal hosts within 45s",
+    response:"isolate-host",
+    evaluate:(e,s)=>{ if(e.type!=="internal_session")return null; const k=e.src_host,w=s.win.lateral,now=e.ts;
+      w[k]=(w[k]||[]).filter(x=>now-x.ts<45000); w[k].push({dst:e.dst_host,ts:now});
+      const d=new Set(w[k].map(x=>x.dst)).size;
+      if(d>=4) return {detail:`${e.src_host} opened admin sessions to ${d} hosts in 45s`,evidence:{src_host:e.src_host,targets:d},pillar:"Networks"}; return null; } },
+
+  { id:"dns-tunnel", name:"DNS tunneling / beaconing", tactic:"Command & Control", severity:"high",
+    description:"Steady, high-frequency DNS queries to one domain with long random labels — a covert channel signature.",
+    logic:"queries(domain) >= 20 within 30s AND avg_label_len > 25",
+    response:"throttle-source",
+    evaluate:(e,s)=>{ if(e.type!=="dns")return null; const k=e.domain,w=s.win.dns,now=e.ts;
+      w[k]=(w[k]||[]).filter(x=>now-x.ts<30000); w[k].push({len:e.label_len,ts:now});
+      const avg=w[k].reduce((a,b)=>a+b.len,0)/w[k].length;
+      if(w[k].length>=20&&avg>25) return {detail:`${w[k].length} long-label DNS queries to ${e.domain} in 30s`,evidence:{domain:e.domain,queries:w[k].length},pillar:"Networks"}; return null; } },
+
+  { id:"ransom-burst", name:"Ransomware file activity", tactic:"Impact", severity:"critical",
+    description:"A single process rewriting or renaming a large number of files very quickly — classic encryption burst.",
+    logic:"file_modify(process) >= 30 within 10s",
+    response:"isolate-host",
+    evaluate:(e,s)=>{ if(e.type!=="file_modify")return null; const k=e.host+"|"+e.process,w=s.win.ransom,now=e.ts;
+      w[k]=(w[k]||[]).filter(t=>now-t<10000); w[k].push(now);
+      if(w[k].length>=30) return {detail:`${e.process} modified ${w[k].length} files in 10s on ${e.host}`,evidence:{host:e.host,process:e.process,files:w[k].length},pillar:"Data"}; return null; } },
+
+  { id:"new-geo-admin", name:"Admin login from new country", tactic:"Initial Access", severity:"medium",
+    description:"A privileged account signing in from a country it has never used before.",
+    logic:"admin_login(country) where country not in history(user)",
+    response:"challenge-mfa",
+    evaluate:(e,s)=>{ if(e.type!=="admin_login")return null; const h=s.geoHist[e.user]||new Set(); s.geoHist[e.user]=h;
+      if(!h.has(e.country)&&h.size>0){ h.add(e.country); return {detail:`${e.user} (admin) signed in from new country: ${e.country}`,evidence:{user:e.user,country:e.country},pillar:"Identity"}; } h.add(e.country); return null; } },
+];
+
+/* ---------- response playbook (containment only) ---------- */
+const PLAYBOOK = {
+  "throttle-source":{label:"Throttle source IP",note:"Rate-limit the offending IP at the edge. Reversible.",auto:true},
+  "challenge-mfa":{label:"Require MFA re-challenge",note:"Force step-up authentication on the affected account.",auto:true},
+  "isolate-host":{label:"Isolate host",note:"Quarantine host from the network pending review. High impact — needs approval.",auto:false},
+};
+
+/* ---------- engine state ---------- */
+function newEngine(){ return {
+  win:{authFail:{},ports:{},lateral:{},dns:{},ransom:{}},
+  lastLogin:{}, geoHist:{},
+  badHashes:new Set(["e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]),
+};}
+
+function runRules(ev, eng){
+  const fired=[];
+  for(const r of RULES){
+    try{ const res=r.evaluate(ev,eng);
+      if(res){ fired.push({ id:r.id+"-"+ev.ts+"-"+Math.random().toString(36).slice(2,7),
+        ruleId:r.id, ruleName:r.name, tactic:r.tactic, severity:r.severity,
+        detail:res.detail, evidence:res.evidence, pillar:res.pillar, response:r.response,
+        ts:ev.ts, status:"open", aiTriage:null, source:ev._source||"sensor" }); }
+    }catch(err){ console.error("rule "+r.id+" threw",err); } // a broken rule never kills the engine
+  }
+  return fired;
+}
+
+/* ---------- telemetry simulator (stands in for real collectors) ----------
+   Upgraded for realism: large entity pools, coherent attacker "campaigns"
+   (a threat actor picks a source IP and a set of targets and sticks with
+   them for a burst, the way a real intrusion looks), jittered timing, and
+   a benign:malicious ratio closer to real traffic. No more canned loop. */
+const REGIONS=["us-east","us-west","eu-west","eu-central","ap-south","ap-northeast","sa-east","af-south"];
+const COUNTRIES=["US","Canada","UK","Germany","France","Brazil","India","Singapore","Japan","Nigeria","Russia","Netherlands","Australia"];
+const USERS=["a.rivera","j.bailey","svc-deploy","m.chen","k.osei","l.novak","d.park","svc-backup","p.singh","root"];
+const ADMINS=["a.rivera","m.chen","l.novak","root"];
+const HOSTS=["web-01","web-02","web-03","db-01","db-02","app-03","app-04","cache-01","ws-09","ws-14","ws-22","ws-31","mail-01","vpn-01"];
+const PROCS=["explorer.exe","python3","node","svchost.exe","powershell.exe","rundll32.exe","unknown.bin","lockcrypt.exe","tar","rclone"];
+const BAD_DOMAINS=["x9f2k1.evil-cdn.net","data.exfilpoint.io","a1b2c3.badc2.org","sync.darkpool-relay.ru","cdn-update.faux-akamai.net","telemetry.shadowhook.io"];
+const GOOD_DOMAINS=["api.stripe.com","github.com","registry.npmjs.org","s3.amazonaws.com","login.microsoftonline.com"];
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[rnd(0,a.length-1)];
+const chance=p=>Math.random()<p;
+const ipPriv=()=>`10.${rnd(0,4)}.${rnd(0,40)}.${rnd(2,254)}`;
+const ipExt=()=>`${pick([45,77,91,103,185,193,203,212])}.${rnd(0,255)}.${rnd(0,255)}.${rnd(1,254)}`;
+const ip=ipExt;
+function sampleN(arr,n){const c=[...arr];const out=[];n=Math.min(n,c.length);
+  for(let i=0;i<n;i++){out.push(c.splice(rnd(0,c.length-1),1)[0]);}return out;}
+
+/* Active attacker campaigns give the feed coherence + variety at once. */
+let campaigns=[];
+function maybeSpawnCampaign(now){
+  if(campaigns.length<2 && chance(0.05)){
+    const kind=pick(["bruteforce","scan","lateral","exfil","c2","ransom"]);
+    const c={kind,id:Math.random().toString(36).slice(2,6),ends:now+rnd(8000,22000)};
+    if(kind==="bruteforce"){c.src=ipExt();c.target=pick(USERS);}
+    if(kind==="scan"){c.src=ipExt();}
+    if(kind==="lateral"){c.src=pick(HOSTS);c.targets=sampleN(HOSTS.filter(h=>h!==c.src),rnd(4,7));}
+    if(kind==="exfil"){c.dst=ipExt();c.host=pick(HOSTS);}
+    if(kind==="c2"){c.domain=pick(BAD_DOMAINS);c.host=pick(HOSTS);}
+    if(kind==="ransom"){c.host=pick(HOSTS.filter(h=>h.startsWith("ws")));c.proc=pick(["lockcrypt.exe","unknown.bin","cryptd"]);}
+    campaigns.push(c);
+  }
+  campaigns=campaigns.filter(c=>c.ends>now);
+}
+function campaignEvent(now){
+  const c=pick(campaigns); if(!c)return null;
+  switch(c.kind){
+    case"bruteforce": return {type:"auth_fail",source_ip:c.src,user:c.target,ts:now};
+    case"scan": return {type:"conn",source_ip:c.src,dest_port:rnd(1,9000),ts:now};
+    case"lateral": return {type:"internal_session",src_host:c.src,dst_host:pick(c.targets),ts:now};
+    case"exfil": return {type:"egress",dest_ip:c.dst,bytes:rnd(55,600)*1e6,dest_known:false,ts:now};
+    case"c2": return {type:"dns",domain:c.domain,label_len:rnd(28,58),ts:now};
+    case"ransom": return {type:"file_modify",host:c.host,process:c.proc,ts:now};
+  }
+  return null;
+}
+
+function genEvent(now){
+  maybeSpawnCampaign(now);
+  // if a campaign is live, most malicious events come from it (coherent burst)
+  if(campaigns.length && chance(0.30)){ const ce=campaignEvent(now); if(ce)return ce; }
+  // occasional one-off anomalies (not part of a campaign) for variety
+  if(chance(0.05)){
+    switch(pick(["travel","priv","malware","geo","exfil"])){
+      case"travel": return {type:"auth_success",user:pick(USERS),region:pick(REGIONS),ts:now};
+      case"priv": return {type:"priv_change",user:pick(USERS),actor:pick(ADMINS),added_to:pick(["admin","root","readonly","developers"]),ts:now};
+      case"malware": return {type:"file_write",host:pick(HOSTS),path:pick(["/tmp/","/var/tmp/","C:\\Users\\Public\\","/dev/shm/"])+Math.random().toString(36).slice(2,9),sha256:chance(0.5)?"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855":"f1d2"+Math.random().toString(36).slice(2),ts:now};
+      case"geo": return {type:"admin_login",user:pick(ADMINS),country:pick(COUNTRIES),ts:now};
+      case"exfil": return {type:"egress",dest_ip:ipExt(),bytes:rnd(55,300)*1e6,dest_known:false,ts:now};
+    }
+  }
+  // benign baseline — the overwhelming majority of real traffic
+  switch(pick(["auth_success","auth_success","conn","conn","conn","dns","heartbeat","heartbeat","internal_session"])){
+    case"auth_success": return {type:"auth_success",user:pick(USERS),region:pick(["us-east","us-east","us-west","eu-west"]),ts:now};
+    case"conn": return {type:"conn",source_ip:ipExt(),dest_port:pick([80,443,443,443,22,5432,6379]),ts:now};
+    case"dns": return {type:"dns",domain:pick(GOOD_DOMAINS),label_len:rnd(6,14),ts:now};
+    case"internal_session": return {type:"internal_session",src_host:pick(HOSTS),dst_host:pick(HOSTS),ts:now};
+    default: return {type:"heartbeat",host:pick(HOSTS),ts:now};
+  }
+}
+
+/* ---------- real log parser (Telemetry tab: paste actual logs) ---------- */
+/* Best-effort parsers for common formats. The SAME engine scores them. */
+function parseLogLine(line, now){
+  line=line.trim(); if(!line)return null;
+  // sshd failed password
+  let m=line.match(/Failed password for(?: invalid user)? (\S+) from (\d+\.\d+\.\d+\.\d+)/i);
+  if(m)return {type:"auth_fail",user:m[1],source_ip:m[2],ts:now,_source:"pasted-log"};
+  // sshd accepted
+  m=line.match(/Accepted (?:password|publickey) for (\S+) from (\d+\.\d+\.\d+\.\d+)/i);
+  if(m)return {type:"auth_success",user:m[1],region:"unknown",ts:now,_source:"pasted-log"};
+  // generic "connection to port N"
+  m=line.match(/(\d+\.\d+\.\d+\.\d+).*?port (\d+)/i);
+  if(m)return {type:"conn",source_ip:m[1],dest_port:parseInt(m[2]),ts:now,_source:"pasted-log"};
+  // sudo / group add
+  m=line.match(/usermod.*-aG (admin|root|sudo).*?'?(\S+?)'?$/i);
+  if(m)return {type:"priv_change",user:m[2],actor:"unknown",added_to:m[1]==="sudo"?"admin":m[1],ts:now,_source:"pasted-log"};
+  return {type:"raw",line,ts:now,_source:"pasted-log"};
+}
+
+/* ---------- AI triage (Claude as analyst, async, non-blocking) ---------- */
+async function aiTriage(alert){
+  const prompt=`You are a SOC analyst assistant for a DEFENSIVE security console. A detection rule fired. In 2-3 short sentences for a mixed audience (some beginners): what this likely means, how worried to be, and the single best next step for a defender. Calm and concrete. No offensive instructions.
+Alert:
+- Rule: ${alert.ruleName} (${alert.tactic})
+- Severity: ${alert.severity}
+- Detail: ${alert.detail}
+- Evidence: ${JSON.stringify(alert.evidence)}
+Respond ONLY with JSON, no markdown: {"summary": string, "worry": "low"|"medium"|"high", "next_step": string}`;
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+  });
+  const data=await res.json();
+  const text=data.content.map(b=>b.type==="text"?b.text:"").join("").replace(/```json|```/g,"").trim();
+  return JSON.parse(text);
+}
+
+/* ============================================================
+   STATE + RENDER  (tiny vanilla framework, no deps)
+   ============================================================ */
+const ST = {
+  tab:"operations", running:true, alerts:[], eventCount:0, eps:0,
+  actionLog:[], aiOnline:true, selected:null, openLesson:RULES[0].id,
+  blocksApplied:0, paused:false, pendingQueue:[],
+  pillars:{Identity:96,Devices:91,Networks:88,Applications:90,Data:93,"Visibility":99,Automation:94},
+};
+const eng = newEngine();
+let epsCounter=0;
+
+function ago(ts){const s=Math.floor((Date.now()-ts)/1000);if(s<2)return"now";if(s<60)return s+"s ago";return Math.floor(s/60)+"m ago";}
+function worryColor(w){return w==="high"?SEV.critical.color:w==="medium"?SEV.medium.color:SEV.healthy?SEV.healthy:"#4FB3A1";}
+const HEALTHY="#4FB3A1";
+
+/* ---- heartbeat: local engine, runs regardless of AI ----
+   Key fix for flicker: the engine ticks constantly, but we DON'T rebuild
+   the whole screen each tick. We only do a full render when something
+   structural changed (a new alert, a tab switch). Otherwise we patch the
+   handful of live numbers in place. No more blink. */
+setInterval(()=>{
+  if(!ST.running)return;
+  const now=Date.now(), batch=rnd(2,6);
+  let newAlerts=false;
+  for(let i=0;i<batch;i++){
+    const ev=genEvent(now+i); ST.eventCount++; epsCounter++;
+    const fired=runRules(ev,eng);
+    if(fired.length){
+      if(addAlerts(fired)) newAlerts=true;
+      fired.forEach(applyResponse);
+      fired.forEach(triageAsync);
+    }
+  }
+  if(newAlerts) requestRender();   // structure changed -> full render
+  else patchLiveCounters();        // nothing visible changed -> just nudge numbers
+},700);
+setInterval(()=>{ ST.eps=epsCounter; epsCounter=0; patchLiveCounters(); },1000);
+
+/* Dedupe: collapse identical alerts (same rule + same key target) into one
+   row with a running count, instead of flooding the stream with repeats.
+   Returns true if a genuinely NEW row was added (so we know to re-render). */
+function dedupeKey(a){
+  const e=a.evidence||{};
+  const target=e.source_ip||e.src_host||e.host||e.dest_ip||e.user||e.domain||"";
+  return a.ruleId+"|"+target;
+}
+function addAlerts(fired){
+  let structural=false;
+  for(const a of fired){
+    if(ST.paused){ ST.pendingQueue.push(a); continue; }
+    const key=dedupeKey(a);
+    const existing=ST.alerts.find(x=>x.status==="open"&&dedupeKey(x)===key);
+    if(existing){ existing.count=(existing.count||1)+1; existing.ts=a.ts; existing.detail=a.detail; }
+    else { a.count=1; ST.alerts=[a,...ST.alerts].slice(0,120); structural=true; }
+  }
+  return structural;
+}
+
+/* Update only the always-changing counters, in place, without touching the DOM tree. */
+function patchLiveCounters(){
+  setText("hc-events", ST.eventCount.toLocaleString());
+  setText("hc-eps", ST.eps+"/s");
+  setText("op-eps", ST.eps+"/s");
+  // refresh the relative timestamps on visible rows without rebuilding them
+  document.querySelectorAll("[data-ts]").forEach(n=>{ n.textContent=ago(+n.dataset.ts); });
+}
+function setText(id,val){ const n=document.getElementById(id); if(n&&n.textContent!==val)n.textContent=val; }
+
+/* Coalesce render requests to one per animation frame so bursts don't stack. */
+let renderQueued=false;
+function requestRender(){ if(renderQueued)return; renderQueued=true;
+  requestAnimationFrame(()=>{ renderQueued=false; render(); }); }
+
+function applyResponse(alert){
+  const p=PLAYBOOK[alert.response]; if(!p)return;
+  if(p.auto)ST.blocksApplied++;
+  ST.actionLog=[{ts:alert.ts,alertId:alert.id,label:p.label,auto:p.auto,note:p.note,
+    target:alert.evidence.source_ip||alert.evidence.host||alert.evidence.dest_ip||alert.evidence.user||"—",
+    status:p.auto?"applied":"awaiting-approval"},...ST.actionLog].slice(0,60);
+}
+async function triageAsync(alert){
+  try{ const t=await aiTriage(alert); ST.aiOnline=true;
+    const a=ST.alerts.find(x=>x.id===alert.id); if(a)a.aiTriage=t;
+    if(ST.selected&&ST.selected.id===alert.id)ST.selected=a; requestRender();
+  }catch(e){ ST.aiOnline=false;
+    const a=ST.alerts.find(x=>x.id===alert.id); if(a)a.aiTriage={offline:true};
+    if(ST.selected&&ST.selected.id===alert.id)ST.selected=a; requestRender(); }
+}
+
+/* ---- lab: trigger safe attacks ---- */
+function labTrigger(kind){
+  const now=Date.now();
+  const burst=(fn,n)=>{for(let i=0;i<n;i++){const ev=fn(now+i);ev._source="lab";const f=runRules(ev,eng);
+    if(f.length){addAlerts(f);f.forEach(applyResponse);f.forEach(triageAsync);}}};
+  if(kind==="brute"){const src=ipExt();burst(t=>({type:"auth_fail",source_ip:src,user:"root",ts:t}),6);}
+  if(kind==="scan"){const src=ipExt();burst(t=>({type:"conn",source_ip:src,dest_port:t%9000,ts:t}),14);}
+  if(kind==="ransom"){burst(t=>({type:"file_modify",host:"ws-14",process:"lockcrypt.exe",ts:t}),32);}
+  if(kind==="lateral"){const tg=sampleN(HOSTS.filter(h=>h!=="ws-09"),6);burst(t=>({type:"internal_session",src_host:"ws-09",dst_host:pick(tg),ts:t}),8);}
+  if(kind==="exfil"){const ev={type:"egress",dest_ip:ipExt(),bytes:120*1e6,dest_known:false,ts:now,_source:"lab"};const f=runRules(ev,eng);if(f.length){addAlerts(f);f.forEach(applyResponse);f.forEach(triageAsync);}}
+  if(kind==="dns"){burst(t=>({type:"dns",domain:"x9f2k1.evil-cdn.net",label_len:40,ts:t}),22);}
+  ST.tab="alerts"; requestRender();
+}
+
+/* ---- ingest pasted logs ---- */
+function ingestLogs(){
+  const ta=document.getElementById("logpaste"); if(!ta)return;
+  const lines=ta.value.split("\n"); const now=Date.now(); let fedAlerts=0, parsed=0;
+  lines.forEach((ln,i)=>{ const ev=parseLogLine(ln,now+i); if(!ev)return; parsed++;
+    if(ev.type!=="raw"){ const f=runRules(ev,eng); if(f.length){fedAlerts+=f.length;
+      addAlerts(f);f.forEach(applyResponse);f.forEach(triageAsync);} } });
+  document.getElementById("ingest-result").textContent=
+    `Parsed ${parsed} line(s) through the live engine — ${fedAlerts} alert(s) raised. Same rules as the live feed.`;
+  if(fedAlerts>0){ST.tab="alerts";} requestRender();
+}
+
+/* ---- acknowledge all open alerts ---- */
+function ackAll(){ ST.alerts.forEach(a=>{ if(a.status==="open")a.status="ack"; }); render(); }
+
+/* ---- pause/resume the live alert stream (for reading) ---- */
+function pauseStream(){ ST.paused=true; }
+function resumeStream(){
+  ST.paused=false;
+  if(ST.pendingQueue.length){ const q=ST.pendingQueue; ST.pendingQueue=[]; addAlerts(q); requestRender(); }
+}
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+function el(html){const d=document.createElement("div");d.innerHTML=html.trim();return d.firstChild;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function viewOperations(){
+  const open=ST.alerts.filter(a=>a.status==="open");
+  const openCrit=open.filter(a=>a.severity==="critical"||a.severity==="high").length;
+  const posture = openCrit>0
+    ? {label:"Under threat",color:SEV.critical.color,sub:`${openCrit} high-severity alert${openCrit>1?"s":""} open`}
+    : open.length>0
+    ? {label:"Watching",color:SEV.medium.color,sub:`${open.length} alert${open.length>1?"s":""} to review`}
+    : {label:"All clear",color:HEALTHY,sub:"No open alerts"};
+  const bySev={critical:0,high:0,medium:0,low:0};
+  open.forEach(a=>{if(bySev[a.severity]!=null)bySev[a.severity]++});
+  const recent=ST.alerts.slice(0,7);
+  const pending=ST.actionLog.filter(a=>a.status==="awaiting-approval").length;
+
+  return `
+  <div class="fade">
+    <div class="herowrap">
+      <div class="posture" style="border-color:${posture.color}">
+        <div class="lbl">System posture</div>
+        <div class="state" style="color:${posture.color}">${posture.label}</div>
+        <div class="sub">${posture.sub}</div>
+        <div class="sevbar">
+          ${["critical","high","medium","low"].map(s=>`
+            <div class="sevchip"><span class="d" style="background:${SEV[s].color}"></span>
+            <span class="c">${bySev[s]}</span><span class="n">${SEV[s].label}</span></div>`).join("")}
+        </div>
+      </div>
+      <div class="heroside">
+        <div class="mini"><div class="v">${RULES.length}</div><div class="t">Detection rules</div><div class="s">active &amp; auditable</div></div>
+        <div class="mini"><div class="v" id="op-eps">${ST.eps}/s</div><div class="t">Throughput</div><div class="s">local engine</div></div>
+        <div class="mini"><div class="v">${ST.blocksApplied}</div><div class="t">Blocks applied</div><div class="s">this session</div></div>
+        <div class="mini" style="${pending>0?'border-color:'+SEV.medium.color:''}"><div class="v">${pending}</div><div class="t">Awaiting approval</div><div class="s">high-impact</div></div>
+      </div>
+    </div>
+
+    <div class="sectitle">Most recent activity</div>
+    <div class="list">
+      ${recent.length===0?'<div class="empty" style="padding:18px 15px">Engine is watching. Benign traffic only — nothing needs your attention.</div>':""}
+      ${recent.map(a=>`
+        <button class="row" data-alert="${a.id}">
+          <span class="pill" style="background:${SEV[a.severity].color}">${SEV[a.severity].label}</span>
+          <span class="nm">${esc(a.ruleName)}</span>
+          <span class="dt">${esc(a.detail)}</span>
+          <span class="tm" data-ts="${a.ts}">${ago(a.ts)}</span>
+        </button>`).join("")}
+    </div>
+  </div>`;
+}
+
+function viewAlerts(){
+  const a=ST.selected&&ST.alerts.find(x=>x.id===ST.selected.id);
+  const openCount=ST.alerts.filter(x=>x.status==="open").length;
+  return `<div class="fade split">
+    <div class="acol" id="acol">
+      <div class="alerts-head">
+        <span class="sectitle" style="margin:0">Live alerts</span>
+        <span class="alerts-hint" id="pause-hint">hover to pause &amp; read</span>
+        ${openCount>0?`<button class="ackall" id="ackall">Acknowledge all (${openCount})</button>`:""}
+      </div>
+      ${ST.alerts.length===0?'<div class="empty">No alerts yet.</div>':""}
+      ${ST.alerts.map(al=>`
+        <button class="arow ${a&&a.id===al.id?'active':''}" data-alert="${al.id}" style="opacity:${al.status==='ack'?0.5:1}">
+          <span class="stripe" style="background:${SEV[al.severity].color}"></span>
+          <div style="flex:1;min-width:0">
+            <div class="top"><span class="rn">${esc(al.ruleName)}</span><span class="tac">${esc(al.tactic)}</span>${al.count>1?`<span class="cnt">×${al.count}</span>`:""}${al.status==='ack'?'<span class="ackd">acknowledged</span>':''}</div>
+            <div class="ad">${esc(al.detail)}</div>
+          </div>
+          <span class="aidot">${al.aiTriage===null?'<span style="color:#5FA8D3">◔</span>':al.aiTriage.offline?'<span style="color:#52646F">○</span>':'<span style="color:#5FA8D3">●</span>'}</span>
+        </button>`).join("")}
+    </div>
+    <div class="detail">${a?viewDetail(a):'<div class="empty" style="text-align:center;padding-top:40px">Select an alert to see analysis and response options.</div>'}</div>
+  </div>`;
+}
+
+function viewDetail(a){
+  const sev=SEV[a.severity], play=PLAYBOOK[a.response], rule=RULES.find(r=>r.id===a.ruleId);
+  let ai="";
+  if(a.aiTriage===null) ai=`<span class="shimmer"></span><span class="shimmer" style="width:70%"></span>`;
+  else if(a.aiTriage.offline) ai=`<div class="muted">AI triage is unavailable right now. The detection above came from the local engine and stands on its own — review the evidence and apply the response below as needed.</div>`;
+  else ai=`<div style="font-size:14px;line-height:1.6">${esc(a.aiTriage.summary)}</div>
+    <div class="muted" style="margin-top:10px">Concern: <b style="color:${worryColor(a.aiTriage.worry)}">${esc(a.aiTriage.worry)}</b></div>
+    <div class="ainext"><span class="nl">Recommended next step</span>${esc(a.aiTriage.next_step)}</div>`;
+  return `<div class="fade">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="pill" style="background:${sev.color}">${sev.label}</span>
+      <span style="font-size:12px;color:var(--faint)">${esc(a.tactic)}</span>
+      ${a.source==="lab"?'<span class="tag" style="background:rgba(224,112,60,.15);color:var(--high)">LAB</span>':a.source==="pasted-log"?'<span class="tag" style="background:rgba(95,168,211,.15);color:var(--accent)">REAL LOG</span>':''}
+    </div>
+    <h2>${esc(a.ruleName)}</h2>
+    <p class="muted">${esc(rule?rule.description:"")}</p>
+    <div class="block"><div class="bl">What fired</div><div>${esc(a.detail)}</div></div>
+    <div class="block"><div class="bl">Evidence</div><pre class="ev">${esc(JSON.stringify(a.evidence,null,2))}</pre></div>
+    <div class="block"><div class="bl">Detection logic (readable)</div><pre class="ev">${esc(rule?rule.logic:"")}</pre></div>
+    <div class="block aibox"><div class="bl">AI analyst ${a.aiTriage===null?'<span style="font-weight:400;font-style:italic;color:var(--faint);text-transform:none">analyzing…</span>':''}</div>${ai}</div>
+    <div class="block"><div class="bl">Automated response</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div><div style="font-weight:600">${play.label}</div><div class="muted" style="font-size:12px">${play.note}</div></div>
+        <span class="tag" style="background:${play.auto?'rgba(79,179,161,.15)':'rgba(224,160,60,.15)'};color:${play.auto?'var(--healthy)':'var(--medium)'}">${play.auto?'Applied automatically':'Awaiting approval'}</span>
+      </div></div>
+    ${a.status!=="ack"?`<button class="btn" data-ack="${a.id}">Acknowledge &amp; close</button>`:''}
+  </div>`;
+}
+
+function viewResponse(){
+  return `<div class="fade">
+    <div class="sectitle">Response &amp; block log</div>
+    <p class="muted">Every action the console takes is recorded here. Containment only — throttle, MFA-challenge, isolate. Nothing offensive, and high-impact actions wait for a human.</p>
+    ${ST.actionLog.length===0?'<div class="empty">No actions taken yet.</div>':''}
+    <div style="margin-top:12px">
+      ${ST.actionLog.map(a=>`
+        <div class="logrow">
+          <span class="tag" style="background:${a.status==='applied'?'rgba(79,179,161,.15)':'rgba(224,160,60,.15)'};color:${a.status==='applied'?'var(--healthy)':'var(--medium)'}">${a.status==='applied'?'Blocked':'Pending approval'}</span>
+          <span class="ll">${esc(a.label)}</span>
+          <span class="ln">${esc(a.note)} &nbsp;·&nbsp; target: <b style="color:var(--text)">${esc(a.target)}</b></span>
+          <span class="lt">${ago(a.ts)}</span>
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function viewZeroTrust(){
+  const P=ST.pillars;
+  const desc={Identity:"Every user, service & workload verified continuously.",Devices:"Posture & health checked before access.",Networks:"Microsegmented; lateral movement contained.",Applications:"App-level controls & API security.",Data:"Classified, encrypted, DLP enforced.","Visibility":"Full telemetry feeding the engine.",Automation:"SOAR playbooks & policy-as-code."};
+  return `<div class="fade">
+    <div class="sectitle">Zero Trust posture — never trust, always verify</div>
+    <p class="muted">Live maturity across the seven pillars (NIST SP 800-207 / CISA model). These scores move as the engine verifies identity, device posture, and segmentation in real time.</p>
+    <div class="pillars">
+      ${Object.keys(P).map(k=>{const v=P[k];const col=v>=95?HEALTHY:v>=85?SEV.medium.color:SEV.high.color;
+        return `<div class="pcard"><div class="pt">${k}</div><div class="pv" style="color:${col}">${v}<span style="font-size:13px;color:var(--faint)">%</span></div>
+        <div class="pbar"><i style="width:${v}%;background:${col}"></i></div><div class="pd">${desc[k]}</div></div>`;}).join("")}
+    </div>
+  </div>`;
+}
+
+function viewTelemetry(){
+  return `<div class="fade">
+    <div class="sectitle">Telemetry intake</div>
+    <div class="note"><b>This is the seam to the real world.</b> The live feed above is simulated because a browser page can't read your network. But the engine is real — paste actual log lines below (sshd auth logs, connection logs) and the <b>same detection rules</b> will parse and score them. In a server deployment, this same engine ingests syslog, netflow, and EDR/eBPF agent events directly.</div>
+    <p class="muted" style="margin-bottom:8px">Try pasting lines like:</p>
+    <pre class="ev" style="background:#0B1016;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px">Failed password for root from 203.0.113.42 port 22 ssh2
+Failed password for root from 203.0.113.42 port 22 ssh2
+Failed password for root from 203.0.113.42 port 22 ssh2
+Failed password for root from 203.0.113.42 port 22 ssh2
+Failed password for root from 203.0.113.42 port 22 ssh2
+Accepted password for j.bailey from 10.0.0.5 port 22 ssh2</pre>
+    <textarea id="logpaste" placeholder="Paste real log lines here…"></textarea>
+    <button class="feedbtn" id="ingest-btn">Run through engine</button>
+    <div id="ingest-result" class="muted" style="margin-top:10px"></div>
+  </div>`;
+}
+
+function viewLearn(){
+  return `<div class="fade">
+    <div class="sectitle">How each detection works</div>
+    <p class="muted">No black boxes. Every rule below is plain logic you can read, question, and improve. This is the teachable core of the platform.</p>
+    <div style="margin-top:14px">
+      ${RULES.map(r=>`
+        <div class="lesson">
+          <button class="lhead" data-lesson="${r.id}">
+            <span class="pill" style="background:${SEV[r.severity].color}">${SEV[r.severity].label}</span>
+            <span class="nm">${esc(r.name)}</span><span class="tac">${esc(r.tactic)}</span>
+            <span class="ch">${ST.openLesson===r.id?'−':'+'}</span>
+          </button>
+          ${ST.openLesson===r.id?`<div class="lbody">
+            <p class="muted" style="margin-top:12px">${esc(r.description)}</p>
+            <div class="lfield"><span class="fl">Defender's question it answers</span>${esc(DEFQ[r.id]||"")}</div>
+            <div class="lfield"><span class="fl">If it fires, you should</span>${esc(DEFA[r.id]||"")}</div>
+            <code class="rule">// detection logic\n${esc(r.logic)}\n→ response: ${esc(r.response)}</code>
+          </div>`:''}
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+const DEFQ={"auth-bruteforce":"Is someone guessing passwords against my login?","impossible-travel":"Did one account just appear in two places at once?","port-scan":"Is someone mapping which doors are open on my network?","data-exfil":"Is a large amount of data leaving to somewhere I don't recognize?","priv-esc":"Did someone gain admin rights outside a planned change?","malware-hash":"Did a file we already know is malicious land on a machine?","lateral-move":"Is one infected machine spreading to others?","dns-tunnel":"Is data sneaking out disguised as DNS lookups?","ransom-burst":"Is something encrypting our files right now?","new-geo-admin":"Is an admin logging in from somewhere they never have?"};
+const DEFA={"auth-bruteforce":"Confirm the source isn't a misconfigured service, then throttle or block it and check whether any login succeeded.","impossible-travel":"Force MFA on the account and verify with the real user — VPNs cause false positives.","port-scan":"Note the source, verify it isn't your own scanner, and make sure exposed services are patched.","data-exfil":"Treat as urgent: identify the host, confirm the destination, isolate if it can't be explained.","priv-esc":"Verify the change request exists and the actor is authorized; revert if not.","malware-hash":"Isolate the host immediately and begin standard incident response.","lateral-move":"Isolate the source host and review which accounts it used to reach the others.","dns-tunnel":"Block the domain at your resolver and inspect the host making the queries.","ransom-burst":"Isolate the host instantly to stop the spread, then restore affected files from backup.","new-geo-admin":"Step up authentication and confirm directly with the admin before trusting the session."};
+
+function viewArchitecture(){
+  return `<div class="fade">
+    <div class="sectitle">Why this stays up when the AI doesn't</div>
+    <p class="muted">The design rule is simple: the part that protects you must never depend on a network call. Detection and response are local. The AI is an analyst on top.</p>
+    <div class="flow">
+      <div class="node"><div class="nt">Telemetry</div><div class="ns">logs · netflow · EDR/eBPF</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--healthy);background:rgba(79,179,161,.06)"><div class="nt">Local engine</div><div class="ns">rules · scoring · always-on</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--healthy);background:rgba(79,179,161,.06)"><div class="nt">Auto-response</div><div class="ns">throttle · challenge · isolate</div></div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--healthy);font-family:var(--mono)">↑ runs no matter what · 0 external calls ↑</div>
+    <div style="display:flex;gap:16px;align-items:center;margin-top:18px;flex-wrap:wrap">
+      <div class="node" style="border-color:var(--accent);background:rgba(95,168,211,.06)"><div class="nt">AI triage layer</div><div class="ns">${ST.aiOnline?'online · explaining alerts':'offline · engine unaffected'}</div></div>
+      <div class="muted" style="flex:1;min-width:260px">Called asynchronously, after the alert already exists. If it's slow or down, alerts still fire and responses still apply — you only lose the plain-English commentary until it returns. That is the entire "no downtime" guarantee.</div>
+    </div>
+    <div class="principles">
+      ${[["Defense only","Throttle, challenge, isolate, verify. No offensive capability anywhere in the system."],
+         ["Human in the loop","High-impact actions like host isolation always wait for approval."],
+         ["Auditable rules","Every detection is readable logic, not an opaque model. Teach it, fork it, improve it."],
+         ["Fail open for visibility","If a rule or the AI errors, the engine logs it and keeps watching the rest."],
+         ["Honest scope","The live global feed is simulated; the engine, rules, and response logic are real and run on pasted logs."],
+         ["Zero Trust overlay","Posture scored across seven pillars; least privilege and microsegmentation assumed by default."]
+        ].map(([t,d])=>`<div class="principle"><div class="pt">${t}</div><div class="pd">${d}</div></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function viewLab(){
+  const cards=[
+    ["brute","Brute force","Fire 6 rapid failed logins from one IP. Watch the engine throttle the source."],
+    ["scan","Port scan","Probe 14 ports in seconds from one host. The Discovery rule should catch it."],
+    ["ransom","Ransomware burst","Simulate a process rewriting 32 files in 10s. Critical isolate response."],
+    ["lateral","Lateral movement","One host opens admin sessions to 6 others. Containment fires."],
+    ["exfil","Data exfiltration","Push 120MB to an unknown host. Critical egress alert."],
+    ["dns","DNS tunneling","22 long-label DNS queries to a bad domain. C2 channel caught."],
+  ];
+  return `<div class="fade">
+    <div class="sectitle">Lab mode — trigger attacks safely, watch the engine catch them</div>
+    <p class="muted">Nothing here touches a real system. Each button injects a synthetic attack pattern into the same local engine so students can see detection and response happen live. Great for teaching: press one, then read the alert and the AI analyst's explanation.</p>
+    <div class="labgrid">
+      ${cards.map(([k,t,d])=>`<div class="labcard"><h3>${t}</h3><p>${d}</p><button class="labbtn" data-lab="${k}">Launch &amp; observe</button></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* ---------- main render ----------
+   Structure: the shell (header + nav) is built ONCE. After that we only
+   swap the <main> contents and patch small bits (nav badge, AI lamp,
+   posture color) in place. This is what kills the whole-page blink. */
+let shellBuilt=false, lastTab=null;
+
+function render(){
+  if(!shellBuilt){ buildShell(); shellBuilt=true; }
+  renderMain();
+  patchShell();
+}
+
+function buildShell(){
+  const tabs=[["operations","Operations"],["alerts","Alert stream"],["response","Response log"],["telemetry","Telemetry"],["zerotrust","Zero Trust"],["lab","Lab mode"],["learn","Learn"],["architecture","How it works"]];
+  document.getElementById("app").innerHTML=`
+    <header>
+      <div class="brandwrap">
+        <svg id="hc-shield" width="32" height="36" viewBox="0 0 34 38" fill="none"><path id="hc-shield-body" d="M17 2L31 7v11c0 9-6 15-14 18C9 33 3 27 3 18V7L17 2z" stroke="${HEALTHY}" stroke-width="2" fill="rgba(95,168,211,0.06)"/><path id="hc-shield-check" d="M11 19l4 4 8-9" stroke="${HEALTHY}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><div class="brand">AEGIS <span>CORE</span></div><div class="tagline">AI-orchestrated defense console</div></div>
+      </div>
+      <div class="hstats">
+        <div class="stat"><div class="v" id="hc-events">0</div><div class="l">Events processed</div></div>
+        <div class="stat"><div class="v" id="hc-eps">0/s</div><div class="l">Throughput</div></div>
+        <div class="lamp"><span class="dot" style="background:${HEALTHY};box-shadow:0 0 8px ${HEALTHY}"></span><div><div class="lt">Engine</div><div class="ls">local</div></div></div>
+        <div class="lamp"><span class="dot" id="hc-ai-dot" style="background:${HEALTHY};box-shadow:0 0 8px ${HEALTHY}"></span><div><div class="lt">AI triage</div><div class="ls" id="hc-ai-label">claude</div></div></div>
+      </div>
+    </header>
+    <nav id="nav">
+      ${tabs.map(([id,label])=>`<button class="${ST.tab===id?'active':''}" data-tab="${id}">${label}${id==='alerts'?`<span class="badge" id="nav-badge" style="display:none"></span>`:''}</button>`).join("")}
+      <button class="runbtn" id="runbtn"><span id="run-dot" style="width:8px;height:8px;border-radius:8px;background:${HEALTHY};display:inline-block"></span><span id="run-label">Live</span></button>
+    </nav>
+    <main id="main"></main>`;
+
+  // wire shell-level events once
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{ST.tab=b.dataset.tab;updateNavActive();render();});
+  document.getElementById("runbtn").onclick=()=>{ST.running=!ST.running;
+    document.getElementById("run-dot").style.background=ST.running?HEALTHY:"var(--faint)";
+    document.getElementById("run-label").textContent=ST.running?"Live":"Paused";};
+}
+
+function updateNavActive(){
+  document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===ST.tab));
+}
+
+function patchShell(){
+  const open=ST.alerts.filter(a=>a.status==="open").length;
+  const openCrit=ST.alerts.filter(a=>a.status==="open"&&(a.severity==="critical"||a.severity==="high")).length;
+  const postureColor=openCrit>0?SEV.critical.color:open>0?SEV.medium.color:HEALTHY;
+  const sb=document.getElementById("hc-shield-body"), sc=document.getElementById("hc-shield-check");
+  if(sb)sb.setAttribute("stroke",postureColor); if(sc)sc.setAttribute("stroke",postureColor);
+  const badge=document.getElementById("nav-badge");
+  if(badge){ if(open>0){badge.style.display="";badge.textContent=open;} else badge.style.display="none"; }
+  const aiDot=document.getElementById("hc-ai-dot"), aiLabel=document.getElementById("hc-ai-label");
+  if(aiDot){aiDot.style.background=ST.aiOnline?HEALTHY:SEV.medium.color;aiDot.style.boxShadow=ST.aiOnline?"0 0 8px "+HEALTHY:"none";}
+  if(aiLabel)aiLabel.textContent=ST.aiOnline?"claude":"fallback";
+  setText("hc-events",ST.eventCount.toLocaleString());
+  setText("hc-eps",ST.eps+"/s");
+}
+
+function renderMain(){
+  const body = ST.tab==="operations"?viewOperations()
+    : ST.tab==="alerts"?viewAlerts()
+    : ST.tab==="response"?viewResponse()
+    : ST.tab==="telemetry"?viewTelemetry()
+    : ST.tab==="zerotrust"?viewZeroTrust()
+    : ST.tab==="lab"?viewLab()
+    : ST.tab==="learn"?viewLearn()
+    : viewArchitecture();
+
+  const main=document.getElementById("main");
+  const tabChanged = lastTab!==ST.tab;
+  lastTab=ST.tab;
+  main.innerHTML=`<div class="${tabChanged?'fade-in':''}">${body}</div>`;
+
+  // wire main-level events
+  document.querySelectorAll("[data-alert]").forEach(b=>b.onclick=()=>{ST.selected=ST.alerts.find(a=>a.id===b.dataset.alert);ST.tab="alerts";updateNavActive();render();});
+  document.querySelectorAll("[data-ack]").forEach(b=>b.onclick=()=>{const a=ST.alerts.find(x=>x.id===b.dataset.ack);if(a)a.status="ack";render();});
+  document.querySelectorAll("[data-lesson]").forEach(b=>b.onclick=()=>{ST.openLesson=ST.openLesson===b.dataset.lesson?null:b.dataset.lesson;render();});
+  document.querySelectorAll("[data-lab]").forEach(b=>b.onclick=()=>labTrigger(b.dataset.lab));
+  const ib=document.getElementById("ingest-btn"); if(ib)ib.onclick=ingestLogs;
+  const acol=document.getElementById("acol");
+  if(acol){
+    acol.onmouseenter=()=>{ pauseStream(); const h=document.getElementById("pause-hint"); if(h){h.textContent="paused — move away to resume";h.classList.add("paused");} };
+    acol.onmouseleave=()=>{ resumeStream(); const h=document.getElementById("pause-hint"); if(h){h.textContent="hover to pause & read";h.classList.remove("paused");} };
+  }
+  const aa=document.getElementById("ackall"); if(aa)aa.onclick=ackAll;
+}
+
+
+/* ============================================================
+   ANIMATED CYBER BACKGROUND (foreground stays fully usable)
+   ============================================================ */
+(function(){
+  const c=document.getElementById("bg-canvas"),x=c.getContext("2d");
+  let W,H,nodes=[],packets=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;
+    nodes=[];const n=Math.min(70,Math.floor(W*H/26000));
+    for(let i=0;i<n;i++)nodes.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25});}
+  resize();addEventListener("resize",resize);
+  function loop(){
+    x.clearRect(0,0,W,H);
+    // links
+    for(let i=0;i<nodes.length;i++){const a=nodes[i];a.x+=a.vx;a.y+=a.vy;
+      if(a.x<0||a.x>W)a.vx*=-1;if(a.y<0||a.y>H)a.vy*=-1;
+      for(let j=i+1;j<nodes.length;j++){const b=nodes[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+        if(d<130){x.strokeStyle="rgba(95,168,211,"+(0.10*(1-d/130))+")";x.lineWidth=1;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();
+          if(Math.random()<0.0007)packets.push({a:i,b:j,t:0});}}}
+    // nodes
+    for(const a of nodes){x.fillStyle="rgba(95,168,211,0.5)";x.beginPath();x.arc(a.x,a.y,1.6,0,7);x.fill();}
+    // traveling packets (the "traffic" being watched)
+    packets=packets.filter(p=>p.t<=1);
+    for(const p of packets){p.t+=0.02;const a=nodes[p.a],b=nodes[p.b];if(!a||!b)continue;
+      const px=a.x+(b.x-a.x)*p.t,py=a.y+(b.y-a.y)*p.t;
+      x.fillStyle="rgba(79,179,161,0.9)";x.beginPath();x.arc(px,py,2.2,0,7);x.fill();}
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+
+render();
+</script>
+</body>
+</html>
